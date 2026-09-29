@@ -1,0 +1,68 @@
+yaml
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: 코드 가져오기
+        uses: actions/checkout@v4
+
+      - name: 화면 파일을 앱 안에 넣기
+        run: |
+          mkdir -p ios/Web
+          cp index.html nel.webp ios/Web/
+
+      - name: XcodeGen 설치
+        run: brew install xcodegen
+
+      - name: Xcode 프로젝트 만들기
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: 빌드 (서명 없이)
+        working-directory: ios
+        run: |
+          xcodebuild \
+            -project NelNote.xcodeproj \
+            -scheme NelNote \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: IPA 파일로 묶기
+        working-directory: ios
+        run: |
+          APP=$(find build/Build/Products -maxdepth 3 -name "NelNote.app" | head -n 1)
+          echo "앱 위치: $APP"
+          rm -rf Payload NelNote.ipa
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry NelNote.ipa Payload
+          ls -la NelNote.ipa
+
+      - name: 결과 파일 보관
+        uses: actions/upload-artifact@v4
+        with:
+          name: NelNote-ipa
+          path: ios/NelNote.ipa
+
+      - name: Releases 에 올리기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ios-latest --yes --cleanup-tag || true
+          gh release create ios-latest ios/NelNote.ipa \
+            --title "NEL NOTE iOS (최신)" \
+            --notes "서명 없는 IPA예요. AltStore 등 서명 앱에서 열어 설치하세요."
