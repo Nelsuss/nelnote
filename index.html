@@ -1396,7 +1396,7 @@ img { -webkit-touch-callout: none; -webkit-user-drag: none; }
   }
   function doCopy() {
     var text = backupText();
-    if (NATIVE && NATIVE.copy) { NATIVE.copy(text); return; }
+    if (NATIVE && NATIVE.copy) { NATIVE.copy(text); if (NATIVE.webToast) showToast('백업을 복사했어요'); return; }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () { showToast('백업을 복사했어요'); },
         function () { fillImportBox(text); });
